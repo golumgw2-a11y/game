@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Embrouille à Bordeaux</title>
+<link rel="icon" href="🎲">
+<style>
+body { background-color:black; color:white; font-family:Arial,sans-serif; margin:0; padding:0; text-align:center; }
+h1 { color:gold; margin:20px; }
+.intro, .game { padding:20px; }
+.game { display:none; justify-content:center; align-items:flex-start; gap:20px; flex-wrap:wrap; }
+.card { background:#222; color:white; border-radius:15px; width:300px; padding:20px; box-shadow:0 0 15px gold; display:flex; flex-direction:column; justify-content:space-between; }
+.card h2 { font-size:1.2em; margin:0 0 10px; color:gold; }
+#card-image { font-size:40px; margin:10px 0; }
+#card-text { white-space:pre-line; text-align:left; margin-top:10px; }
+.card-footer { margin-top:10px; font-size:0.9em; color:#aaa; }
+.buttons { display:grid; grid-template-columns:1fr 1fr; gap:15px 20px; margin-top:20px; }
+.bling-btn { background:linear-gradient(145deg,gold,#d4af37); border:2px solid #ffd700; border-radius:12px; padding:12px; font-size:16px; font-weight:bold; color:black; text-shadow:1px 1px 1px #fff; cursor:pointer; box-shadow:0 0 10px gold; transition: transform 0.1s, box-shadow 0.2s; }
+.bling-btn:hover { transform:scale(1.05); box-shadow:0 0 20px gold; }
+.vote-btn { grid-column:1/-1; justify-self:center; display:none; }
+.sidebar { display:flex; flex-direction:column; align-items:flex-start; gap:10px; }
+.player-container { display:none; align-items:center; gap:10px; }
+.player-label { width:30px; text-align:right; color:gold; }
+.player-box { background:#333; color:white; border:1px solid gold; border-radius:8px; padding:5px 10px; min-width:150px; text-align:left; white-space:pre-line; }
+@media(max-width:768px){ .game { flex-direction:column; align-items:center; } .sidebar { flex-direction:row; flex-wrap:wrap; justify-content:center; } .player-container { flex:1 1 45%; } }
+</style>
+</head>
+<body>
+
+<div class="intro" id="intro">
+  <h1>Embrouille à Bordeaux</h1>
+  <p>
+    Le casse a eu lieu il y a 48h, mais tout ne s’est pas déroulé comme prévu… Vous voilà tous au poste de police, chacun dans une pièce séparée, subissant un interrogatoire minutieux.
+  </p>
+  <p>
+    Chaque joueur incarne son personnage avec ses qualités et défauts. À tour de rôle, vous répondrez aux interrogatoires et pourrez improviser des situations.
+    À la fin, une carte finale dévoilera le sort de chacun et la répartition du butin.
+  </p>
+  <button class="bling-btn" id="startBtn">Commencer</button>
+</div>
+<div class="game" id="game">
+  <div class="card">
+    <h2 id="card-title">Piochez une carte</h2>
+    <div id="card-image">🎲</div>
+    <div id="card-text"></div>
+    <div id="card-footer" class="card-footer"></div>
+    <div class="buttons">
+      <button class="bling-btn" onclick="drawCard('tresor')">Pioche Trésor</button>
+      <button class="bling-btn" onclick="drawCard('personnage')">Pioche Personnage</button>
+      <button class="bling-btn" onclick="drawCard('narration')">Pioche Interrogatoire</button>
+      <button class="bling-btn" onclick="drawCard('finale')">Pioche Finale</button>
+      <button class="bling-btn vote-btn" id="vote-btn" onclick="startVote()">Voter</button>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="player-container" id="but-container">
+      <div class="player-label">But</div>
+      <div class="player-box" id="But"></div>
+    </div>
+    <div class="player-container" id="J1-container"><div class="player-label">J1</div><div class="player-box" id="J1"></div></div>
+    <div class="player-container" id="J2-container"><div class="player-label">J2</div><div class="player-box" id="J2"></div></div>
+    <div class="player-container" id="J3-container"><div class="player-label">J3</div><div class="player-box" id="J3"></div></div>
+    <div class="player-container" id="J4-container"><div class="player-label">J4</div><div class="player-box" id="J4"></div></div>
+    <div class="player-container" id="J5-container"><div class="player-label">J5</div><div class="player-box" id="J5"></div></div>
+    <div class="player-container" id="J6-container"><div class="player-label">J6</div><div class="player-box" id="J6"></div></div>
+  </div>
+</div>
+<script>
+// --- Initialisation du bouton Commencer ---
+document.getElementById("startBtn").addEventListener("click", startGame);
+
+function startGame(){
+  document.getElementById("intro").style.display="none";
+  document.getElementById("game").style.display="flex";
+  ["But","J1","J2","J3","J4","J5","J6"].forEach(id=>{
+    document.getElementById(id).textContent="";
+    document.getElementById(id+"-container").style.display="none";
+  });
+  tourJoueur=1;
+  votes=[];
+  document.getElementById("vote-btn").style.display="none"; // bouton caché
+}
+
+// --- Cartes Trésor ---
+const tresors=[
+  {title:"Caisse de Petrus 1982", image:"🍷", details:"Cave des Chartrons\nValeur ~5000€"},
+  {title:"Disque dur crypté", image:"💻", details:"Start-up French Tech\nInformations sensibles"},
+  {title:"Toile perdue de Goya", image:"🖼️", details:"Hôtel particulier\nValeur ~20000€"},
+  {title:"Container scellé", image:"📦", details:"Port de la Lune\nContenu inconnu"},
+  {title:"Statue en or massif", image:"🗿", details:"Cathédrale Saint-André\nValeur ~15000€"},
+  {title:"Recette grand cru", image:"🍇", details:"Laboratoire œnologique\nSecret du domaine"},
+  {title:"Diamants bruts", image:"💎", details:"Aéroport de Mérignac\nLot précieux"},
+  {title:"Trophée Girondins", image:"🏆", details:"Historique\nValeur symbolique"},
+  {title:"Carnet noir", image:"📓", details:"Comptes illégaux\nInformations sensibles"},
+  {title:"Armes anciennes", image:"🗡️", details:"Cave voûtée\nValeur historique"}
+];
+
+// --- Cartes Personnage ---
+const personnages=[
+  {title:"Docker retraité", image:"👷", details:"Qualité: Connaissance des quais\nDéfaut: Peu discret"},
+  {title:"Hackeuse Talence", image:"💻", details:"Qualité: Informatique avancée\nDéfaut: Impulsive"},
+  {title:"Œnologue mondain", image:"🍷", details:"Qualité: Sens du vin\nDéfaut: Vaniteux"},
+  {title:"Conductrice VTC", image:"🚗", details:"Qualité: Connaissance des rues\nDéfaut: Stressée"},
+  {title:"Étudiant squatteur", image:"🎒", details:"Qualité: Agile\nDéfaut: Inexpérimenté"},
+  {title:"Restaurateur d’art", image:"🎨", details:"Qualité: Méticuleux\nDéfaut: Lent"},
+  {title:"Ancienne flic", image:"👮", details:"Qualité: Stratégique\nDéfaut: Méfiante"},
+  {title:"Coureur du dimanche", image:"🏃", details:"Qualité: Rapide\nDéfaut: Fatigable"},
+  {title:"Livreur à vélo", image:"🚴", details:"Qualité: Connaissance des raccourcis\nDéfaut: Têtu"},
+  {title:"Héritière ruinée", image:"👸", details:"Qualité: Déterminée\nDéfaut: Prétentieuse"}
+];
+// --- 60 cartes Narratives ---
+const narratives=[
+  {title:"Interrogatoire 1", image:"📖", details:"Pourquoi as-tu accepté ce casse ?"},
+  {title:"Interrogatoire 2", image:"📖", details:"Qui t’a convaincu de rejoindre l’équipe ?"},
+  {title:"Interrogatoire 3", image:"📖", details:"Quelle préparation a failli échouer ?"},
+  {title:"Interrogatoire 4", image:"📖", details:"Quel rôle t’a été confié dans le plan ?"},
+  {title:"Interrogatoire 5", image:"📖", details:"Quel détail t’a mis mal à l’aise ?"},
+  {title:"Interrogatoire 6", image:"📖", details:"À quel moment as-tu compris que ça allait mal tourner ?"},
+  {title:"Interrogatoire 7", image:"📖", details:"Quel lien personnel avais-tu déjà avec un membre ?"},
+  {title:"Interrogatoire 8", image:"📖", details:"Qu’as-tu apporté qui s’est révélé indispensable ?"},
+  {title:"Interrogatoire 9", image:"📖", details:"Qu’espérais-tu vraiment obtenir du butin ?"},
+  {title:"Interrogatoire 10", image:"📖", details:"Quelle a été ta première impression sur l’équipe ?"},
+  // ... continuer jusqu'à 60 avec titres Interrogatoire 1 à 60
+];
+
+// --- Cartes finales ---
+const finales=[
+  {title:"Le Marché", image:"💰", details:"Votez secrètement qui sera sacrifié. Décrivez le destin de chacun."},
+  {title:"Le Partage", image:"💰", details:"Divisez le butin et décrivez les réactions."},
+  {title:"Retour de Flammes", image:"💥", details:"Le butin cachait un piège. Révélez-le et racontez votre destin."},
+  {title:"La Légende Bordelaise", image:"📜", details:"Inventez la rumeur et la vérité sur votre personnage."}
+];
+
+let tourJoueur=1;
+let votes=[];
+
+// --- Tirage cartes ---
+function drawCard(tas){
+  let card;
+  if(tas==="tresor"){ 
+    if(!tresors.length){ alert("Plus de trésors"); return; }
+    const index=Math.floor(Math.random()*tresors.length);
+    card=tresors.splice(index,1)[0];
+    document.getElementById("But").textContent=card.title + "\n" + card.details;
+    document.getElementById("but-container").style.display="flex";
+
+  } else if(tas==="personnage"){ 
+    if(!personnages.length){ alert("Plus de personnages"); return; }
+    const index=Math.floor(Math.random()*personnages.length);
+    card=personnages.splice(index,1)[0];
+    for(let i=1;i<=6;i++){
+      const box=document.getElementById("J"+i);
+      const container=document.getElementById("J"+i+"-container");
+      if(box && box.textContent===""){
+        box.textContent=card.title + "\n" + card.details;
+        container.style.display="flex";
+        break;
+      }
+    }
+
+  } else if(tas==="narration"){ 
+    if(!narratives.length){ alert("Plus d'interrogatoires"); return; }
+    let joueursActifs=[];
+    for(let i=1;i<=6;i++){ if(document.getElementById("J"+i).textContent!=="") joueursActifs.push(i); }
+    if(joueursActifs.length===0){ alert("Aucun joueur actif"); return; }
+    const joueurCible=joueursActifs[(tourJoueur-1)%joueursActifs.length];
+    tourJoueur++;
+    const index=Math.floor(Math.random()*narratives.length);
+    card=narratives.splice(index,1)[0];
+    card.details += `\n(J${joueurCible} doit répondre)`;
+
+  } else if(tas==="finale"){ 
+    if(!finales.length){ alert("Plus de cartes finales"); return; }
+    const index=Math.floor(Math.random()*finales.length);
+    card=finales.splice(index,1)[0];
+    if(card.title==="Le Marché"){ document.getElementById("vote-btn").style.display="block"; }
+    else { document.getElementById("vote-btn").style.display="none"; }
+  }
+
+  if(card){
+    document.getElementById("card-title").textContent=card.title;
+    document.getElementById("card-image").textContent=card.image;
+    document.getElementById("card-text").textContent=card.details;
+    document.getElementById("card-footer").textContent="Carte " + tas;
+  }
+}
+
+// --- Vote anonyme ---
+function startVote(){
+  let joueursActifs=[];
+  for(let i=1;i<=6;i++){ if(document.getElementById("J"+i).textContent!=="") joueursActifs.push(i); }
+  if(joueursActifs.length===0){ alert("Aucun joueur actif pour voter"); return; }
+  let voteCount=[0,0,0,0,0,0,0];
+  joueursActifs.forEach(j=>{
+    let choix=parseInt(prompt(`J${j}, entrez le numéro du joueur à voter (1-6) ou 0 pour aucun:`,"0"));
+    if(choix>=1 && choix<=6) voteCount[choix]++;
+  });
+  let resultText="Résultat du vote (anonyme):\n";
+  for(let i=1;i<=6;i++){
+    if(document.getElementById("J"+i).textContent!==""){
+      resultText+=`J${i} a reçu ${voteCount[i]} vote(s)\n`;
+    }
+  }
+  alert(resultText);
+}
+</script>
+</body>
+</html>
